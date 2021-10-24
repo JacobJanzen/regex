@@ -1,15 +1,16 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 struct DFA {
     number_of_states: u32,
     transistions: HashMap<(u32, char), u32>,
-    accepting_states: Vec<u32>,
+    accepting_states: HashSet<u32>,
 }
 
 impl DFA {
     fn new(
         number_of_states: u32,
         transistions: HashMap<(u32, char), u32>,
-        accepting_states: Vec<u32>,
+        accepting_states: HashSet<u32>,
     ) -> DFA {
         DFA {
             number_of_states,
@@ -44,14 +45,14 @@ mod tests {
 
     #[test]
     fn run_on_empty_string() {
-        let mut accepting_states = Vec::new();
-        accepting_states.push(0);
+        let mut accepting_states = HashSet::new();
+        accepting_states.insert(0);
         let dfa = DFA::new(1, HashMap::new(), accepting_states);
 
         assert!(dfa.run("".to_string()));
 
-        let mut accepting_states = Vec::new();
-        accepting_states.push(1);
+        let mut accepting_states = HashSet::new();
+        accepting_states.insert(1);
         let mut transistions = HashMap::new();
         transistions.insert((0, '0'), 1);
         let dfa = DFA::new(2, transistions, accepting_states);
@@ -61,8 +62,8 @@ mod tests {
 
     #[test]
     fn run_on_string_length_one() {
-        let mut accepting_states = Vec::new();
-        accepting_states.push(1);
+        let mut accepting_states = HashSet::new();
+        accepting_states.insert(1);
         let mut transistions = HashMap::new();
         transistions.insert((0, '0'), 1);
         let dfa = DFA::new(2, transistions, accepting_states);
@@ -70,9 +71,9 @@ mod tests {
         assert!(dfa.run("0".to_string()));
         assert!(!dfa.run("1".to_string()));
 
-        let mut accepting_states = Vec::new();
-        accepting_states.push(1);
-        accepting_states.push(2);
+        let mut accepting_states = HashSet::new();
+        accepting_states.insert(1);
+        accepting_states.insert(2);
         let mut transistions = HashMap::new();
         transistions.insert((0, '0'), 1);
         transistions.insert((0, '1'), 2);
@@ -83,8 +84,8 @@ mod tests {
 
     #[test]
     fn invalid_transition() {
-        let mut accepting_states = Vec::new();
-        accepting_states.push(1);
+        let mut accepting_states = HashSet::new();
+        accepting_states.insert(1);
         let mut transistions = HashMap::new();
         transistions.insert((0, '0'), 1);
         let dfa = DFA::new(1, transistions, accepting_states);
