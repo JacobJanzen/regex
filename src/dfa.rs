@@ -57,7 +57,10 @@ impl DFA {
             if try_general_case {
                 let state_transition = (current_state, None);
                 match self.transitions.get(&state_transition) {
-                    Some(new_state) => current_state = *new_state,
+                    Some(new_state) => {
+                        current_state = *new_state;
+                        try_general_case = false;
+                    }
                     None => return false,
                 }
             }
@@ -136,5 +139,17 @@ mod tests {
         assert!(!dfa.run("0".to_string()));
 
         assert!(dfa.run("1".to_string()));
+    }
+
+    #[test]
+    fn use_loop_at_start() {
+        let mut accepting_states = HashSet::new();
+        accepting_states.insert(1);
+        let mut transitions = HashMap::new();
+        transitions.insert((0, None), 0);
+        transitions.insert((0, Some('1')), 1);
+        let dfa = DFA::new(transitions, accepting_states);
+
+        assert!(dfa.run("0001".to_string()));
     }
 }
