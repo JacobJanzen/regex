@@ -62,6 +62,20 @@ fn match_character(
                     }
                 };
             }
+            '+' => {
+                // one or more
+                match last_char {
+                    Some(c) => {
+                        *curr_state -= 1;
+                        transitions.insert((*curr_state, NFAChar::If(*c)), *curr_state);
+                    }
+                    None => {
+                        // normal character
+                        transitions.insert((*curr_state - 1, NFAChar::If(c)), *curr_state);
+                        *last_char = Some(c);
+                    }
+                };
+            }
             _ => {
                 // normal character
                 transitions.insert((*curr_state - 1, NFAChar::If(c)), *curr_state);
@@ -120,7 +134,9 @@ fn iterate_through_expression(
     current_state
 }
 
-fn compile(expression: String) -> NFA {
+/// Compiles regular expression into NFA.
+/// Can be reused for multiple runs.
+pub fn compile(expression: String) -> NFA {
     let (mut start, mut transitions) = check_start(&expression);
     let mut end = false;
 
@@ -136,7 +152,7 @@ fn compile(expression: String) -> NFA {
     NFA::new(transitions, accepting_states)
 }
 
-pub fn run(expression: String, input: String) -> bool {
+pub fn compile_and_run(expression: String, input: String) -> bool {
     let dfa = compile(expression);
     dfa.run(input)
 }
@@ -147,57 +163,70 @@ mod tests {
 
     #[test]
     fn run_empty_regex() {
-        assert!(run("".to_string(), "".to_string()));
-        assert!(run("".to_string(), "afklgjlakj".to_string()))
+        assert!(compile_and_run("".to_string(), "".to_string()));
+        assert!(compile_and_run("".to_string(), "afklgjlakj".to_string()))
     }
 
     #[test]
     fn match_string() {
-        assert!(!run("abcd".to_string(), "".to_string()));
-        assert!(run("abcd".to_string(), "abcd".to_string()))
+        assert!(!compile_and_run("abcd".to_string(), "".to_string()));
+        assert!(compile_and_run("abcd".to_string(), "abcd".to_string()))
     }
 
     #[test]
     fn match_string_not_at_start() {
-        assert!(run("abcd".to_string(), "xxxabcd".to_string()));
+        assert!(compile_and_run("abcd".to_string(), "xxxabcd".to_string()));
     }
 
     #[test]
     fn match_wildcard() {
-        assert!(run("a.cd".to_string(), "abcd".to_string()));
-        assert!(run("a.cd".to_string(), "axcd".to_string()));
+        assert!(compile_and_run("a.cd".to_string(), "abcd".to_string()));
+        assert!(compile_and_run("a.cd".to_string(), "axcd".to_string()));
     }
 
     #[test]
     fn escape() {
-        assert!(run("a\\.cd".to_string(), "a.cd".to_string()));
-        assert!(run("a\\\\".to_string(), "a\\".to_string()));
-        assert!(!run("a\\.cd".to_string(), "axcd".to_string()));
+        assert!(compile_and_run("a\\.cd".to_string(), "a.cd".to_string()));
+        assert!(compile_and_run("a\\\\".to_string(), "a\\".to_string()));
+        assert!(!compile_and_run("a\\.cd".to_string(), "axcd".to_string()));
     }
 
     #[test]
     fn check_for_start() {
-        assert!(run("^abcd".to_string(), "abcd".to_string()));
-        assert!(!run("^abcd".to_string(), "xxxabcd".to_string()));
+        assert!(compile_and_run("^abcd".to_string(), "abcd".to_string()));
+        assert!(!compile_and_run("^abcd".to_string(), "xxxabcd".to_string()));
     }
 
     #[test]
     fn check_for_end() {
-        assert!(run("abcd$".to_string(), "abcd".to_string()));
-        assert!(!run("abcd$".to_string(), "abcdxxx".to_string()));
+        assert!(compile_and_run("abcd$".to_string(), "abcd".to_string()));
+        assert!(!compile_and_run("abcd$".to_string(), "abcdxxx".to_string()));
     }
 
     #[test]
     fn zero_or_one() {
-        assert!(run("a?b?c?d".to_string(), "acd".to_string()));
-        assert!(run("a?b?c?d".to_string(), "ad".to_string()));
-        assert!(run("a?b?c?d".to_string(), "d".to_string()));
+        assert!(compile_and_run("a?b?c?d".to_string(), "acd".to_string()));
+        assert!(compile_and_run("a?b?c?d".to_string(), "ad".to_string()));
+        assert!(compile_and_run("a?b?c?d".to_string(), "d".to_string()));
     }
 
     #[test]
     fn zero_or_more() {
-        assert!(run("a*b*c*d".to_string(), "abcd".to_string()));
-        assert!(run("a*b*c*d".to_string(), "aacccd".to_string()));
-        assert!(run("a*b*c*d".to_string(), "d".to_string()));
+        assert!(compile_and_run("a*b*c*d".to_string(), "abcd".to_string()));
+        assert!(compile_and_run("a*b*c*d".to_string(), "aacccd".to_string()));
+        assert!(compile_and_run("a*b*c*d".to_string(), "d".to_string()));
+    }
+
+    #[test]
+    fn one_or_more() {
+        assert!(compile_and_run("a+b+c+d".to_string(), "abcd".to_string()));
+        assert!(compile_and_run(
+            "a+b+c+d".to_string(),
+            "aaabbccccd".to_string()
+        ));
+        assert!(!compile_and_run(
+            "a+b+c+d".to_string(),
+            "aaccccd".to_string()
+        ));
     }
 }
