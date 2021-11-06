@@ -1,71 +1,104 @@
 mod dfa;
+use dfa::Transition;
 use dfa::DFA;
-use std::collections::HashMap;
 use std::collections::HashSet;
 
-fn compile(expression: String) -> DFA {
-    let mut transitions = HashMap::new();
-    let mut accepting_states = HashSet::new();
-
-    let mut current_state = 0;
-    let mut escape = false;
-    let mut start = false;
-    let mut end = false;
-
+fn check_start(expression: &String) -> (bool, Transition) {
+    let mut transitions = Transition::new();
     // If first char is ^ then process differently
     if expression.chars().next() == Some('^') {
-        start = true;
+        return (true, transitions);
     } else {
         // add loop until first char is read
         transitions.insert((0, None), 0);
     }
+
+    (false, transitions)
+}
+
+fn match_character(
+    c: char,
+    curr_state: &mut u32,
+    transitions: &mut Transition,
+    escape: &mut bool,
+    end: &mut bool,
+) {
+    if !*escape {
+        match c {
+            '.' => {
+                // wildcard
+                transitions.insert((*curr_state - 1, None), *curr_state);
+            }
+            '\\' => {
+                // escape
+                *escape = true;
+                *curr_state -= 1;
+            }
+            '$' => {
+                // end
+                *end = true;
+                transitions.insert((*curr_state - 1, Some(c)), *curr_state);
+            }
+            _ => {
+                // normal character
+                transitions.insert((*curr_state - 1, Some(c)), *curr_state);
+            }
+        }
+    } else {
+        // insert escaped character
+        transitions.insert((*curr_state - 1, Some(c)), *curr_state);
+        *escape = false;
+    }
+}
+
+fn check_end(transitions: &mut Transition, curr_state: &mut u32, end: &bool) {
+    // If last char is $ then remove last transition
+    if *end {
+        println!("{}", *curr_state);
+        *curr_state -= 1;
+        transitions.remove(&(*curr_state, Some('$')));
+    } else {
+        // add loop after end of expression is read
+        transitions.insert((*curr_state, None), *curr_state);
+    }
+}
+
+fn iterate_through_expression(
+    expression: String,
+    transitions: &mut Transition,
+    start: &mut bool,
+    end: &mut bool,
+) -> u32 {
+    let mut current_state = 0;
+    let mut escape = false;
     for c in expression.chars() {
         current_state += 1;
-        end = false;
+        *end = false;
 
         // If ^ was at the start then don't read it
-        if start {
+        if *start {
             current_state -= 1;
-            start = false;
+            *start = false;
             continue;
         }
 
-        // If this character was not escaped, process normally
-        if !escape {
-            match c {
-                '.' => {
-                    // wildcard
-                    transitions.insert((current_state - 1, None), current_state);
-                }
-                '\\' => {
-                    // escape
-                    escape = true;
-                    current_state -= 1;
-                }
-                '$' => {
-                    // end
-                    end = true;
-                    transitions.insert((current_state - 1, Some(c)), current_state);
-                }
-                _ => {
-                    // normal character
-                    transitions.insert((current_state - 1, Some(c)), current_state);
-                }
-            };
-        } else {
-            // insert escaped character
-            transitions.insert((current_state - 1, Some(c)), current_state);
-            escape = false;
-        }
+        match_character(c, &mut current_state, transitions, &mut escape, end);
     }
 
-    if end {
-        current_state -= 1;
-        transitions.remove(&(current_state, Some('$')));
-    } else {
-        // add loop after end of expression read
-        transitions.insert((current_state, None), current_state);
-    }
+    current_state
+}
+
+fn compile(expression: String) -> DFA {
+    let (mut start, mut transitions) = check_start(&expression);
+    let mut end = false;
+
+    let mut current_state =
+        iterate_through_expression(expression, &mut transitions, &mut start, &mut end);
+
+    check_end(&mut transitions, &mut current_state, &mut end);
+
+    // add accepting state
+    let mut accepting_states = HashSet::new();
     accepting_states.insert(current_state);
 
     DFA::new(transitions, accepting_states)

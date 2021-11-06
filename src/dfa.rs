@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+pub type Transition = HashMap<(u32, Option<char>), u32>;
+
 /// Represents a deterministic finite automaton
 /// # Q: States
 /// We don't need to explicitly store this.
@@ -13,7 +15,7 @@ pub struct DFA {
     /// Specifies a state and its input to get output state.
     /// Uses `None` option to represent unconditional transition;
     /// if `Some(x)` was also specified, it will look at that first.
-    transitions: HashMap<(u32, Option<char>), u32>,
+    transitions: Transition,
     /// # F: Accepting states
     /// Set of states that the DFA will accept in.
     accepting_states: HashSet<u32>,
@@ -22,16 +24,13 @@ pub struct DFA {
 impl DFA {
     /// Create a new DFA
     ///
-    /// Give a transition function in the form of a `HashMap`.
+    /// Give a transition function in the form of a `Transition`.
     /// Use `None` as the input character to add transition on everything after
     /// the `Some(x)` transitions.
     ///
     /// Give the set of accepting states in the form of a `HashSet`.
     /// Refer to states by an integer.
-    pub fn new(
-        transitions: HashMap<(u32, Option<char>), u32>,
-        accepting_states: HashSet<u32>,
-    ) -> DFA {
+    pub fn new(transitions: Transition, accepting_states: HashSet<u32>) -> DFA {
         DFA {
             transitions,
             accepting_states,
@@ -81,13 +80,13 @@ mod tests {
     fn run_on_empty_string() {
         let mut accepting_states = HashSet::new();
         accepting_states.insert(0);
-        let dfa = DFA::new(HashMap::new(), accepting_states);
+        let dfa = DFA::new(Transition::new(), accepting_states);
 
         assert!(dfa.run("".to_string()));
 
         let mut accepting_states = HashSet::new();
         accepting_states.insert(1);
-        let mut transitions = HashMap::new();
+        let mut transitions = Transition::new();
         transitions.insert((0, Some('0')), 1);
         let dfa = DFA::new(transitions, accepting_states);
 
@@ -98,7 +97,7 @@ mod tests {
     fn run_on_string_length_one() {
         let mut accepting_states = HashSet::new();
         accepting_states.insert(1);
-        let mut transitions = HashMap::new();
+        let mut transitions = Transition::new();
         transitions.insert((0, Some('0')), 1);
         let dfa = DFA::new(transitions, accepting_states);
 
@@ -108,7 +107,7 @@ mod tests {
         let mut accepting_states = HashSet::new();
         accepting_states.insert(1);
         accepting_states.insert(2);
-        let mut transitions = HashMap::new();
+        let mut transitions = Transition::new();
         transitions.insert((0, Some('0')), 1);
         transitions.insert((0, Some('1')), 2);
         let dfa = DFA::new(transitions, accepting_states);
@@ -120,7 +119,7 @@ mod tests {
     fn transition_on_all() {
         let mut accepting_states = HashSet::new();
         accepting_states.insert(1);
-        let mut transitions = HashMap::new();
+        let mut transitions = Transition::new();
         transitions.insert((0, None), 1);
         let dfa = DFA::new(transitions, accepting_states);
 
@@ -131,7 +130,7 @@ mod tests {
     fn transition_on_some() {
         let mut accepting_states = HashSet::new();
         accepting_states.insert(1);
-        let mut transitions = HashMap::new();
+        let mut transitions = Transition::new();
         transitions.insert((0, None), 1);
         transitions.insert((0, Some('0')), 2);
         let dfa = DFA::new(transitions, accepting_states);
@@ -145,7 +144,7 @@ mod tests {
     fn use_loop_at_start() {
         let mut accepting_states = HashSet::new();
         accepting_states.insert(1);
-        let mut transitions = HashMap::new();
+        let mut transitions = Transition::new();
         transitions.insert((0, None), 0);
         transitions.insert((0, Some('1')), 1);
         let dfa = DFA::new(transitions, accepting_states);
