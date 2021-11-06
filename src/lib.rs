@@ -22,6 +22,7 @@ fn match_character(
     curr_state: &mut u32,
     transitions: &mut Transition,
     escape: &mut bool,
+    last_char: &mut Option<char>,
     end: &mut bool,
 ) {
     if !*escape {
@@ -45,14 +46,32 @@ fn match_character(
                 *curr_state -= 1;
                 transitions.insert((*curr_state - 1, NFAChar::Epsilon), *curr_state);
             }
+            '*' => {
+                // zero or more
+                match last_char {
+                    Some(c) => {
+                        *curr_state -= 1;
+                        transitions.remove(&(*curr_state - 1, NFAChar::If(*c)));
+                        transitions.insert((*curr_state - 1, NFAChar::Epsilon), *curr_state);
+                        transitions.insert((*curr_state, NFAChar::If(*c)), *curr_state);
+                    }
+                    None => {
+                        // normal character
+                        transitions.insert((*curr_state - 1, NFAChar::If(c)), *curr_state);
+                        *last_char = Some(c);
+                    }
+                };
+            }
             _ => {
                 // normal character
                 transitions.insert((*curr_state - 1, NFAChar::If(c)), *curr_state);
+                *last_char = Some(c);
             }
         }
     } else {
         // insert escaped character
         transitions.insert((*curr_state - 1, NFAChar::If(c)), *curr_state);
+        *last_char = Some(c);
         *escape = false;
     }
 }
@@ -76,6 +95,7 @@ fn iterate_through_expression(
 ) -> u32 {
     let mut current_state = 0;
     let mut escape = false;
+    let mut last_char = None;
     for c in expression.chars() {
         current_state += 1;
         *end = false;
@@ -87,7 +107,14 @@ fn iterate_through_expression(
             continue;
         }
 
-        match_character(c, &mut current_state, transitions, &mut escape, end);
+        match_character(
+            c,
+            &mut current_state,
+            transitions,
+            &mut escape,
+            &mut last_char,
+            end,
+        );
     }
 
     current_state
@@ -165,5 +192,12 @@ mod tests {
         assert!(run("a?b?c?d".to_string(), "acd".to_string()));
         assert!(run("a?b?c?d".to_string(), "ad".to_string()));
         assert!(run("a?b?c?d".to_string(), "d".to_string()));
+    }
+
+    #[test]
+    fn zero_or_more() {
+        assert!(run("a*b*c*d".to_string(), "abcd".to_string()));
+        assert!(run("a*b*c*d".to_string(), "aacccd".to_string()));
+        assert!(run("a*b*c*d".to_string(), "d".to_string()));
     }
 }
