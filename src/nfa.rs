@@ -63,52 +63,51 @@ impl NFA {
     /// return true if the NFA accepts.
     /// return false if the NFA rejects.
     pub fn run(&self, input: String) -> bool {
-        let mut last_state = 0;
         let mut current_states = HashSet::new();
-        current_states.insert(last_state);
-        self.follow_epilon_transition(&mut current_states, last_state);
+        let mut next_states = HashSet::new();
+        current_states.insert(0);
+        self.follow_epilon_transition(&mut current_states, 0);
 
         for c in input.chars() {
-            let mut count_successes = 0;
+            let mut successes = 0;
+            let mut check_else = true;
 
-            // Check each state from the epsilon transition until a match is found
-            // Since our implementation is just for regular expressions,
-            // true NFA features are not required.
-            // Instead, I have implemented a DFA with epsilon transitions.
-            // The compiler will never produce multiple paths,
-            // so we only need to get the first match
-            // because all other transitions will reject.
-            // TODO: use multi-threading for checking paths.
+            // TODO: use multithreading
             for state in &current_states {
                 let state_transition = (*state, NFAChar::If(c));
                 match self.transitions.get(&state_transition) {
                     Some(new_state) => {
-                        last_state = *new_state;
-                        current_states = HashSet::new();
-                        current_states.insert(last_state);
-                        self.follow_epilon_transition(&mut current_states, last_state);
-                        count_successes += 1;
-                        break;
+                        successes += 1;
+                        next_states.insert(*new_state);
+                        self.follow_epilon_transition(&mut next_states, *new_state);
+                        check_else = false;
                     }
                     None => (),
                 };
 
-                let state_transition = (*state, NFAChar::Else);
-                match self.transitions.get(&state_transition) {
-                    Some(new_state) => {
-                        last_state = *new_state;
-                        current_states = HashSet::new();
-                        current_states.insert(last_state);
-                        self.follow_epilon_transition(&mut current_states, last_state);
-                        count_successes += 1;
-                        break;
-                    }
-                    None => (),
+                if check_else {
+                    let state_transition = (*state, NFAChar::Else);
+                    match self.transitions.get(&state_transition) {
+                        Some(new_state) => {
+                            successes += 1;
+                            next_states.insert(*new_state);
+                            self.follow_epilon_transition(&mut next_states, *new_state);
+                        }
+                        None => (),
+                    };
                 }
             }
 
-            if count_successes == 0 {
+            // exit if there were no valid transitions
+            if successes == 0 {
                 return false;
+            }
+
+            // move the next states into the current states
+            // TODO: use pointers instead of copying to reduce time complexity
+            current_states = HashSet::new();
+            for state in &next_states {
+                current_states.insert(*state);
             }
         }
 
