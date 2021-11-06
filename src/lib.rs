@@ -1,6 +1,7 @@
-mod dfa;
-use dfa::Transition;
-use dfa::DFA;
+mod nfa;
+use nfa::NFAChar;
+use nfa::Transition;
+use nfa::NFA;
 use std::collections::HashSet;
 
 fn check_start(expression: &String) -> (bool, Transition) {
@@ -10,7 +11,7 @@ fn check_start(expression: &String) -> (bool, Transition) {
         return (true, transitions);
     } else {
         // add loop until first char is read
-        transitions.insert((0, None), 0);
+        transitions.insert((0, NFAChar::Else), 0);
     }
 
     (false, transitions)
@@ -27,7 +28,7 @@ fn match_character(
         match c {
             '.' => {
                 // wildcard
-                transitions.insert((*curr_state - 1, None), *curr_state);
+                transitions.insert((*curr_state - 1, NFAChar::Else), *curr_state);
             }
             '\\' => {
                 // escape
@@ -37,16 +38,21 @@ fn match_character(
             '$' => {
                 // end
                 *end = true;
-                transitions.insert((*curr_state - 1, Some(c)), *curr_state);
+                transitions.insert((*curr_state - 1, NFAChar::If(c)), *curr_state);
+            }
+            '?' => {
+                // zero or one
+                *curr_state -= 1;
+                transitions.insert((*curr_state - 1, NFAChar::Epsilon), *curr_state);
             }
             _ => {
                 // normal character
-                transitions.insert((*curr_state - 1, Some(c)), *curr_state);
+                transitions.insert((*curr_state - 1, NFAChar::If(c)), *curr_state);
             }
         }
     } else {
         // insert escaped character
-        transitions.insert((*curr_state - 1, Some(c)), *curr_state);
+        transitions.insert((*curr_state - 1, NFAChar::If(c)), *curr_state);
         *escape = false;
     }
 }
@@ -54,12 +60,11 @@ fn match_character(
 fn check_end(transitions: &mut Transition, curr_state: &mut u32, end: &bool) {
     // If last char is $ then remove last transition
     if *end {
-        println!("{}", *curr_state);
         *curr_state -= 1;
-        transitions.remove(&(*curr_state, Some('$')));
+        transitions.remove(&(*curr_state, NFAChar::If('$')));
     } else {
         // add loop after end of expression is read
-        transitions.insert((*curr_state, None), *curr_state);
+        transitions.insert((*curr_state, NFAChar::Else), *curr_state);
     }
 }
 
@@ -88,7 +93,7 @@ fn iterate_through_expression(
     current_state
 }
 
-fn compile(expression: String) -> DFA {
+fn compile(expression: String) -> NFA {
     let (mut start, mut transitions) = check_start(&expression);
     let mut end = false;
 
@@ -101,7 +106,7 @@ fn compile(expression: String) -> DFA {
     let mut accepting_states = HashSet::new();
     accepting_states.insert(current_state);
 
-    DFA::new(transitions, accepting_states)
+    NFA::new(transitions, accepting_states)
 }
 
 pub fn run(expression: String, input: String) -> bool {
@@ -153,5 +158,12 @@ mod tests {
     fn check_for_end() {
         assert!(run("abcd$".to_string(), "abcd".to_string()));
         assert!(!run("abcd$".to_string(), "abcdxxx".to_string()));
+    }
+
+    #[test]
+    fn zero_or_one() {
+        assert!(run("a?b?c?d".to_string(), "acd".to_string()));
+        assert!(run("a?b?c?d".to_string(), "ad".to_string()));
+        assert!(run("a?b?c?d".to_string(), "d".to_string()));
     }
 }
