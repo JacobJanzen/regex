@@ -17,7 +17,7 @@ pub type Transition = HashMap<(u32, NFAChar), u32>;
 /// Always defined as 0.
 /// # Σ: Alphabet
 /// Defined as being all unicode characters.
-pub struct NFA {
+pub struct Nfa {
     /// # δ: Transition Function
     /// Specifies a state and its input to get output state.
     /// Uses `None` option to represent unconditional transition;
@@ -28,7 +28,7 @@ pub struct NFA {
     accepting_states: HashSet<u32>,
 }
 
-impl NFA {
+impl Nfa {
     /// Create a new NFA
     ///
     /// Give a transition function in the form of a `Transition`.
@@ -37,8 +37,8 @@ impl NFA {
     ///
     /// Give the set of accepting states in the form of a `HashSet`.
     /// Refer to states by an integer.
-    pub fn new(transitions: Transition, accepting_states: HashSet<u32>) -> NFA {
-        NFA {
+    pub fn new(transitions: Transition, accepting_states: HashSet<u32>) -> Nfa {
+        Nfa {
             transitions,
             accepting_states,
         }
@@ -48,12 +48,9 @@ impl NFA {
     /// to given state: curr.
     fn follow_epilon_transition(&self, current_states: &mut HashSet<u32>, curr: u32) {
         let state_transition = (curr, NFAChar::Epsilon);
-        match self.transitions.get(&state_transition) {
-            Some(new_state) => {
-                current_states.insert(*new_state);
-                self.follow_epilon_transition(current_states, *new_state);
-            }
-            None => (),
+        if let Some(new_state) = self.transitions.get(&state_transition) {
+            current_states.insert(*new_state);
+            self.follow_epilon_transition(current_states, *new_state);
         };
     }
 
@@ -75,25 +72,19 @@ impl NFA {
             // TODO: use multithreading
             for state in &current_states {
                 let state_transition = (*state, NFAChar::If(c));
-                match self.transitions.get(&state_transition) {
-                    Some(new_state) => {
-                        successes += 1;
-                        next_states.insert(*new_state);
-                        self.follow_epilon_transition(&mut next_states, *new_state);
-                        check_else = false;
-                    }
-                    None => (),
+                if let Some(new_state) = self.transitions.get(&state_transition) {
+                    successes += 1;
+                    next_states.insert(*new_state);
+                    self.follow_epilon_transition(&mut next_states, *new_state);
+                    check_else = false;
                 };
 
                 if check_else {
                     let state_transition = (*state, NFAChar::Else);
-                    match self.transitions.get(&state_transition) {
-                        Some(new_state) => {
-                            successes += 1;
-                            next_states.insert(*new_state);
-                            self.follow_epilon_transition(&mut next_states, *new_state);
-                        }
-                        None => (),
+                    if let Some(new_state) = self.transitions.get(&state_transition) {
+                        successes += 1;
+                        next_states.insert(*new_state);
+                        self.follow_epilon_transition(&mut next_states, *new_state);
                     };
                 }
             }
@@ -128,7 +119,7 @@ mod tests {
     fn run_on_empty_string() {
         let mut accepting_states = HashSet::new();
         accepting_states.insert(0);
-        let nfa = NFA::new(Transition::new(), accepting_states);
+        let nfa = Nfa::new(Transition::new(), accepting_states);
 
         assert!(nfa.run("".to_string()));
 
@@ -136,7 +127,7 @@ mod tests {
         accepting_states.insert(1);
         let mut transitions = Transition::new();
         transitions.insert((0, NFAChar::If('0')), 1);
-        let nfa = NFA::new(transitions, accepting_states);
+        let nfa = Nfa::new(transitions, accepting_states);
 
         assert!(!nfa.run("".to_string()));
     }
@@ -147,7 +138,7 @@ mod tests {
         accepting_states.insert(1);
         let mut transitions = Transition::new();
         transitions.insert((0, NFAChar::If('0')), 1);
-        let nfa = NFA::new(transitions, accepting_states);
+        let nfa = Nfa::new(transitions, accepting_states);
 
         assert!(nfa.run("0".to_string()));
         assert!(!nfa.run("1".to_string()));
@@ -158,7 +149,7 @@ mod tests {
         let mut transitions = Transition::new();
         transitions.insert((0, NFAChar::If('0')), 1);
         transitions.insert((0, NFAChar::If('1')), 2);
-        let nfa = NFA::new(transitions, accepting_states);
+        let nfa = Nfa::new(transitions, accepting_states);
 
         assert!(nfa.run("1".to_string()));
     }
@@ -169,7 +160,7 @@ mod tests {
         accepting_states.insert(1);
         let mut transitions = Transition::new();
         transitions.insert((0, NFAChar::Else), 1);
-        let nfa = NFA::new(transitions, accepting_states);
+        let nfa = Nfa::new(transitions, accepting_states);
 
         assert!(nfa.run("0".to_string()));
     }
@@ -181,7 +172,7 @@ mod tests {
         let mut transitions = Transition::new();
         transitions.insert((0, NFAChar::Else), 1);
         transitions.insert((0, NFAChar::If('0')), 2);
-        let nfa = NFA::new(transitions, accepting_states);
+        let nfa = Nfa::new(transitions, accepting_states);
 
         assert!(!nfa.run("0".to_string()));
 
@@ -195,7 +186,7 @@ mod tests {
         let mut transitions = Transition::new();
         transitions.insert((0, NFAChar::Else), 0);
         transitions.insert((0, NFAChar::If('1')), 1);
-        let nfa = NFA::new(transitions, accepting_states);
+        let nfa = Nfa::new(transitions, accepting_states);
 
         assert!(nfa.run("0001".to_string()));
     }
@@ -206,7 +197,7 @@ mod tests {
         accepting_states.insert(1);
         let mut transitions = Transition::new();
         transitions.insert((0, NFAChar::Epsilon), 1);
-        let nfa = NFA::new(transitions, accepting_states);
+        let nfa = Nfa::new(transitions, accepting_states);
 
         assert!(nfa.run("".to_string()));
 
@@ -222,7 +213,7 @@ mod tests {
         transitions.insert((2, NFAChar::Epsilon), 3);
         transitions.insert((3, NFAChar::If('d')), 4);
 
-        let nfa = NFA::new(transitions, accepting_states);
+        let nfa = Nfa::new(transitions, accepting_states);
 
         assert!(nfa.run("acd".to_string()));
     }

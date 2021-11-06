@@ -1,13 +1,13 @@
 mod nfa;
 use nfa::NFAChar;
+use nfa::Nfa;
 use nfa::Transition;
-use nfa::NFA;
 use std::collections::HashSet;
 
-fn check_start(expression: &String) -> (bool, Transition) {
+fn check_start(expression: &str) -> (bool, Transition) {
     let mut transitions = Transition::new();
     // If first char is ^ then process differently
-    if expression.chars().next() == Some('^') {
+    if expression.starts_with('^') {
         return (true, transitions);
     } else {
         // add loop until first char is read
@@ -136,20 +136,20 @@ fn iterate_through_expression(
 
 /// Compiles regular expression into NFA.
 /// Can be reused for multiple runs.
-pub fn compile(expression: String) -> NFA {
+pub fn compile(expression: String) -> Nfa {
     let (mut start, mut transitions) = check_start(&expression);
     let mut end = false;
 
     let mut current_state =
         iterate_through_expression(expression, &mut transitions, &mut start, &mut end);
 
-    check_end(&mut transitions, &mut current_state, &mut end);
+    check_end(&mut transitions, &mut current_state, &end);
 
     // add accepting state
     let mut accepting_states = HashSet::new();
     accepting_states.insert(current_state);
 
-    NFA::new(transitions, accepting_states)
+    Nfa::new(transitions, accepting_states)
 }
 
 pub fn compile_and_run(expression: String, input: String) -> bool {
